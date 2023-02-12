@@ -1,7 +1,6 @@
 /***************************************************************************
  Code to use with the Salt sentry , see https://www.tindie.com/products/ErikLemcke/mqtt--wifi-doorbell-with-esp8266/
- Created by Erik Lemcke 18-08-2021
-
+ Created by Erik Lemcke 05-01-2021
 
  This code can be used from the arduino library, you will need the following libraries:
  https://github.com/tzapu/WiFiManager     Included in this repository (src folder)
@@ -69,6 +68,7 @@ char oh_itemid[40];
 char min_range[5];
 char max_range[5];
 
+float lastMeasure = 0;
 
 //flag for saving data
 bool shouldSaveConfig = false;
@@ -309,7 +309,7 @@ void reconnect() {
   Serial.print(mqtt_port);
   Serial.print("...");
   
-  if (client.connect("SaltSentry2", mqtt_username, mqtt_password)) {
+  if (client.connect("SaltSentry", mqtt_username, mqtt_password)) {
      Serial.println("connected");
      String("<div style=\"color:green;float:left\">connected</div>").toCharArray(mqtt_status,60);
    } else {
@@ -390,9 +390,9 @@ void resetstate (){
   }
 }
 
-float calculatePercentage(float measured, String minRange, String maxRange) {  
+float calculatePercentage(float distanceCm, String minRange, String maxRange) {  
   float percentage;
-  float rangeCm = measured / 10;
+  float rangeCm = distanceCm;
   float correctedRange = rangeCm - minRange.toFloat();
 
   if (correctedRange < 0) {
@@ -406,7 +406,9 @@ float calculatePercentage(float measured, String minRange, String maxRange) {
      }
   }
 
-  return round(percentage);
+  // 1 decimal
+  percentage = percentage * 10;
+  return round(percentage)/10;
 }
 
 
@@ -441,32 +443,62 @@ void loop() {
   //Go into a non-blocking loop to do a measurement every 5 minutes
   float percentage;
   unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= 60000 || firstLoop == true) {
+  
+    if (currentMillis - previousMillis >= 300000 || firstLoop == true) {
       firstLoop = false;
       previousMillis = currentMillis;
 
       VL53L0X_RangingMeasurementData_t measure;
-    
-      lox.rangingTest(&measure, false); 
+      lox.rangingTest(&measure, false);      
 
-      if (measure.RangeStatus != 4) {  
-        percentage = calculatePercentage(measure.RangeMilliMeter, min_range, max_range);
+      // If we're measuring a slightly lower numer of mm than before, cummunicate the last measurment 
+      float currentMeasure;
+      if (measure.RangeStatus != 4) {
+        Serial.println(measure.RangeMilliMeter);
+        float measurement = measure.RangeMilliMeter;
+        measurement = measurement / 10;
+
+//        Serial.print("Vorige meting:");
+//        Serial.println(lastMeasure);
+//        
+//        Serial.print("Gemeten:");
+//        Serial.println(measurement);
+//
+//        Serial.print("Verschil met vorige meting:");
+//        Serial.println(lastMeasure - measurement);
+        
+        if (measurement < lastMeasure && lastMeasure - measurement <= 2){
+          
+//           Serial.print("Verschil van 1 cm of minder, communiceren:");
+//           Serial.println(lastMeasure);
+          currentMeasure = lastMeasure;
+        } else {
+//          Serial.print("Geen verschil van 1 cm of minder, communiceren:");
+//          Serial.println(measurement);
+          currentMeasure = measurement;
+          lastMeasure = measurement;
+        }
+        
+        percentage = calculatePercentage(currentMeasure, min_range, max_range);
       } else {
         Serial.println("meaurment out of range, returning 100%");
         percentage = 100;
       }
+
+      
       
       if (strlen(mqtt_topic) != 0){
-        sendMqttMessage(percentage, measure);
+        Serial.println("Sending MQTT message");
+        sendMqttMessage(percentage, currentMeasure);
       }
     
      if (strlen(dz_idx) != 0){
-      sendDomoticzMessage(percentage, measure);
+      sendDomoticzMessage(percentage, currentMeasure);
      }
    
      // OpenHAB
      if (strlen(oh_itemid) != 0){
-       sendOpenHabMessage(percentage, measure);
+       sendOpenHabMessage(percentage, currentMeasure);
       }
   }
 }

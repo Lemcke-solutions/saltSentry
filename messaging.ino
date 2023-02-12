@@ -1,4 +1,7 @@
-void sendOpenHabMessage(int percentage, VL53L0X_RangingMeasurementData_t measure){
+void sendOpenHabMessage(float percentage, float distanceCm){
+  Serial.println(percentage);
+  Serial.println(distanceCm);
+  
   char result[8];
   Serial.print("sending ");
   Serial.print(percentage);
@@ -7,21 +10,20 @@ void sendOpenHabMessage(int percentage, VL53L0X_RangingMeasurementData_t measure
   http.begin("http://" + String(mqtt_server) + ":" + String(mqtt_port) +"/rest/items/" + String(oh_itemid)); 
   http.addHeader("Content-Type", "text/plain");
   http.POST(String(percentage));
-  http.POST(String(percentage));
   http.end();
   
-  dtostrf(measure.RangeMilliMeter/10, 3, 0, result); 
+//  dtostrf(distanceCm, 3, 1, result); 
   Serial.print("sending ");
-  Serial.print(result);
+  Serial.print(distanceCm);
   Serial.print(" as distance to openHAB on url: ");
   Serial.println("http://" + String(mqtt_server) + ":" + String(mqtt_port) +"/rest/items/" + String(oh_itemid) + "_cm"); 
   http.begin("http://" + String(mqtt_server) + ":" + String(mqtt_port) +"/rest/items/" + String(oh_itemid) + "_cm");
   http.addHeader("Content-Type", "text/plain"); 
-  http.POST(result);
+  http.POST(String(distanceCm));
   http.end();
 }
 
-void sendDomoticzMessage(int percentage, VL53L0X_RangingMeasurementData_t measure){
+void sendDomoticzMessage(float percentage, float distanceCm){
   char result[8];
   if (espClient.connect(mqtt_server,atoi(mqtt_port))){
       Serial.print("sending ");
@@ -54,9 +56,9 @@ void sendDomoticzMessage(int percentage, VL53L0X_RangingMeasurementData_t measur
   //reconnect required
   if (espClient.connect(mqtt_server,atoi(mqtt_port))){
 
-      dtostrf(measure.RangeMilliMeter/10, 3, 0, result);   
+//      dtostrf(distanceCm, 3, 0, result);   
       Serial.print("sending ");
-      Serial.print(result);
+      Serial.print(distanceCm);
       Serial.print(" as distance to domotics on IDX ");
       Serial.println(atoi(dz_idx) + 1);
       espClient.print("GET /json.htm?type=command&param=udevice&idx=");
@@ -64,7 +66,7 @@ void sendDomoticzMessage(int percentage, VL53L0X_RangingMeasurementData_t measur
       espClient.print("&nvalue=0");
       espClient.print("&svalue=");
       
-      espClient.print(result);
+      espClient.print(String(distanceCm));
       
       if (strlen(mqtt_username) != 0){
         espClient.print("&username=");
@@ -89,14 +91,14 @@ void sendDomoticzMessage(int percentage, VL53L0X_RangingMeasurementData_t measur
    }
 }
 
-void sendMqttMessage(int percentage, VL53L0X_RangingMeasurementData_t measure){
-  char result[8];
-  dtostrf(percentage, 6, 2, result);
-  client.publish(mqtt_topic, result , true);
+void sendMqttMessage(float percentage, float distanceCm){
+  char tempString[8];
+  dtostrf(percentage, 4, 1, tempString);
+  client.publish(mqtt_topic, tempString , true);
   strcpy(mqtt_distance_topic, mqtt_topic);
   strcat(mqtt_distance_topic, "_distance");
-  dtostrf(measure.RangeMilliMeter/10, 3, 0, result);    
-  client.publish(mqtt_distance_topic, result , true);
+  dtostrf(distanceCm, 4, 1, tempString);    
+  client.publish(mqtt_distance_topic, tempString , true);
   
   Serial.print("sending ");
   Serial.print(percentage);
@@ -108,7 +110,7 @@ void sendMqttMessage(int percentage, VL53L0X_RangingMeasurementData_t measure){
   Serial.println(mqtt_topic);
 
   Serial.print("sending ");
-  Serial.print(result);
+  Serial.print(distanceCm);
   Serial.print("  to ");
   Serial.print(mqtt_server);
   Serial.print(" on port ");
