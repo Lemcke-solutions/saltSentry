@@ -1,5 +1,5 @@
 /***************************************************************************
- Code to use with the Salt sentry , see https://www.tindie.com/products/ErikLemcke/mqtt--wifi-doorbell-with-esp8266/
+ Code to use with the Salt sentry , see https://www.tindie.com/products/ErikLemcke/salt-sentry-water-softener-monitor/
  Created by Erik Lemcke 05-01-2021
 
  This code can be used from the arduino library, you will need the following libraries:
@@ -457,24 +457,11 @@ void loop() {
         Serial.println(measure.RangeMilliMeter);
         float measurement = measure.RangeMilliMeter;
         measurement = measurement / 10;
-
-//        Serial.print("Vorige meting:");
-//        Serial.println(lastMeasure);
-//        
-//        Serial.print("Gemeten:");
-//        Serial.println(measurement);
-//
-//        Serial.print("Verschil met vorige meting:");
-//        Serial.println(lastMeasure - measurement);
         
         if (measurement < lastMeasure && lastMeasure - measurement <= 2){
           
-//           Serial.print("Verschil van 1 cm of minder, communiceren:");
-//           Serial.println(lastMeasure);
           currentMeasure = lastMeasure;
         } else {
-//          Serial.print("Geen verschil van 1 cm of minder, communiceren:");
-//          Serial.println(measurement);
           currentMeasure = measurement;
           lastMeasure = measurement;
         }
